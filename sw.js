@@ -1,5 +1,5 @@
 /* LangitUkur service worker — mode offline. Versi cache berubah otomatis tiap build. */
-const V = 'lu-1.0.0-be52e13d', SHELL = ['./', './index.html', './manifest.json', './icon.png'];
+const V = 'lu-1.1.0-61271d34', SHELL = ['./', './index.html', './manifest.json', './icon.png'];
 const RUNTIME = 'lu-rt', TILES = 'lu-tiles', MAX_TILES = 1500;
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('lu-') && ![V, RUNTIME, TILES].includes(k)).map(k => caches.delete(k)))).then(() => self.clients.claim())); });

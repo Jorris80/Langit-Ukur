@@ -145,8 +145,8 @@ window.LU_API_URL='https://script.google.com/macros/s/AKfycbw2FxKnvkDI_hojNd7rVA
 var APP_META = {
   name: 'LangitUkur',
   subtitle: 'Drone Survey Enterprise',
-  version: '1.1.0',
-  build: '2026.11.15',
+  version: '1.2.0',
+  build: '2026.11.18',
   schemaVersion: 3
 };
 
@@ -868,7 +868,7 @@ LU.renderShell = function () {
   var nav = LU.NAV.map(function (g) { var items = g.items.filter(function (it) { return !it.mod || LU.can(it.mod); }); if (!items.length) return ''; return '<h6>' + esc(g.g) + '</h6>' + items.map(function (it) { return '<a class="nv" data-go="' + it.go + '">' + ic(it.ic) + '<span>' + esc(it.l) + '</span></a>'; }).join(''); }).join('');
   $('#app').innerHTML =
     '<header class="top"><button class="ib" id="hb" aria-label="Menu">' + ic('menu') + '</button><div class="logo" id="hlogo" title="Perbesar logo">' + logoHtml() + '</div><div class="brand grow"><div class="t" id="htitle">' + esc(b.title) + '</div><div class="s">' + esc(b.subtitle) + '</div></div>' +
-    (MODE === 'demo' ? '<button class="ib" id="hdemo" style="width:auto;padding:0 10px;font-weight:800;background:#f59e0b;color:#111">DEMO</button>' : '') + '<select class="psel" id="psel" aria-label="Pilih proyek">' + projOpts + '</select><div class="net hide-sm" id="net"></div>' +
+    (LU.isDemo() ? '<button class="ib" id="hdemo" style="width:auto;padding:0 10px;font-weight:800;background:#f59e0b;color:#111">DEMO</button>' : '') + '<select class="psel" id="psel" aria-label="Pilih proyek">' + projOpts + '</select><div class="net hide-sm" id="net"></div>' +
     '<button class="ib" id="hnot" aria-label="Notifikasi">' + ic('bell') + (B.unread ? '<span class="dot">' + B.unread + '</span>' : '') + '</button>' +
     '<div class="av" id="hav" title="' + esc(u.full_name) + '">' + (u.photo ? '<img src="' + esc(u.photo) + '" style="width:100%;height:100%;object-fit:cover">' : esc((u.full_name || '?').slice(0, 1).toUpperCase())) + '</div></header>' +
     '<aside class="side" id="side"><div class="row" style="padding:6px 8px 2px"><div class="av" style="width:42px;height:42px;border-color:var(--line)" data-go="profile">' + (u.photo ? '<img src="' + esc(u.photo) + '" style="width:100%;height:100%;object-fit:cover">' : esc((u.full_name || '?').slice(0, 1))) + '</div><div style="min-width:0"><div class="b" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(u.full_name) + '</div><div class="sm muted">' + esc(B.roleLabel) + ' · ' + esc(B.org.name || '') + '</div></div></div>' + nav +
@@ -890,12 +890,13 @@ LU.renderShell = function () {
   $('#fab').onclick = function () { if (!S.pid) return toast('Pilih proyek di bagian atas dulu.'); LU.edit('field_activities', null, { date: today(), project_id: S.pid }); };
   document.body.addEventListener('click', function (e) { var g = e.target.closest('[data-go]'); if (!g) return; var v = g.getAttribute('data-go'); if (v === 'menu') { LU.drawer(true); return; } e.preventDefault(); if (v.indexOf('t:') === 0) LU.go('table', { t: v.slice(2) }); else LU.go(v); });
 };
+LU.isDemo = function () { return MODE === 'demo' || !!(S.boot && S.boot.license && S.boot.license.mode === 'DEMO'); };
 LU.demoInfo = function () {
   var L = S.boot.license || {}, d = L.demo || { limits: {}, blocked: {} }, u = window.__demoUsage ? window.__demoUsage() : { pct: 0 };
-  LU.modal({ title: 'Versi demo LangitUkur', body: '<div class="al warn"><div>Versi demo untuk mencoba alur kerja. Data hanya disimpan di browser perangkat ini (±' + u.pct + '% kuota penyimpanan terpakai) dan dapat hilang bila data browser dibersihkan.</div></div>' +
+  LU.modal({ title: 'Versi demo LangitUkur', body: '<div class="al warn"><div>Versi demo untuk mencoba alur kerja. ' + (MODE === 'demo' ? 'Data hanya disimpan di browser perangkat ini (±' + u.pct + '% kuota penyimpanan terpakai) dan dapat hilang bila data browser dibersihkan.' : 'Data disimpan di Google Sheet demo milik Anda; tidak untuk proyek sungguhan.') + '</div></div>' +
     '<h4>Batasan</h4><ul><li>Masa uji: <b>' + (d.days || 14) + ' hari</b> (sisa ' + (L.daysLeft == null ? '-' : L.daysLeft) + ' hari), setelah itu mode baca saja.</li><li>Maksimal <b>' + d.limits.projects + ' proyek</b>, <b>' + d.limits.users + ' pengguna</b>, <b>' + d.limits._default + ' data</b> per tabel (foto ' + d.limits.images + ', GCP/CP ' + d.limits.control_points + ').</li><li>Tanpa server: tidak ada kolaborasi antar-perangkat.</li><li>Laporan & layout cetak diberi tanda air <b>VERSI DEMO</b>.</li><li>Fitur dikunci: ' + Object.keys(d.blocked).map(function (k) { return esc(d.blocked[k]); }).join(', ') + '.</li><li>Asisten AI memakai mesin aturan (tanpa LLM).</li></ul>' +
     '<h4>Yang tetap bisa dicoba</h4><p class="sm">Dashboard, RAB, jadwal & kurva-S, compliance gate, flight planning, peta GIS (PMTiles/GeoTIFF/GeoPDF, ekspor/impor SHP, layout cetak), GCP/CP, impor foto EXIF, job fotogrametri, QC RMSE, laporan, persetujuan, tema & branding.</p>',
-    actions: [{ label: 'Reset & isi ulang data contoh', cls: 'd', fn: function (c) { LU.confirm('Hapus semua data demo di browser ini dan mulai ulang?', 'Reset').then(function (y) { if (y) { window.__demoReset(); location.reload(); } }); } }, { label: 'Tutup', cls: 'p', fn: function (c) { c(); } }] });
+    actions: (MODE === 'demo' ? [{ label: 'Reset & isi ulang data contoh', cls: 'd', fn: function (c) { LU.confirm('Hapus semua data demo di browser ini dan mulai ulang?', 'Reset').then(function (y) { if (y) { window.__demoReset(); location.reload(); } }); } }] : []).concat([{ label: 'Tutup', cls: 'p', fn: function (c) { c(); } }]) });
 };
 LU.project = function () { return S.boot && S.boot.projects.find(function (p) { return p.id === S.pid; }); };
 LU.needProject = function (main, what) { if (S.pid) return false; main.innerHTML = '<div class="vh"><div><h1>' + esc(what) + '</h1></div></div><div class="card empty">' + ic('flag') + '<p>Pilih proyek pada menu di bagian atas untuk membuka ' + esc(what.toLowerCase()) + '.</p>' + (LU.can('projects', 'c') ? '<button class="btn p" onclick="LU.go(\'table\',{t:\'projects\'})">' + ic('plus') + 'Kelola proyek</button>' : '') + '</div>'; return true; };
@@ -904,6 +905,7 @@ LU.needProject = function (main, what) { if (S.pid) return false; main.innerHTML
 LU.start = function (fresh) {
   LU.applyTheme();
   var go = function (B) {
+    if (MODE !== 'demo' && B.license && B.license.mode === 'DEMO' && !B.projects.length && !S._seeded && ((B.perms || {}).projects || '').indexOf('c') >= 0) { S._seeded = 1; toast('Mengisi data contoh demo…'); return rpc('demoSeed', {}).then(function () { return rpc('bootstrap', {}); }).then(function (B2) { IDB.set('kv', 'boot', B2); go(B2); }).catch(function () { S.boot = B; go(B); }); }
     S.boot = B; if (S.pid && !B.projects.some(function (p) { return p.id === S.pid; })) S.pid = '';
     if (!S.pid && B.projects.length === 1) S.pid = B.projects[0].id;
     LU.applyTheme(); LU.renderShell(); LU.initHistory();
@@ -2200,7 +2202,7 @@ LU.printLayout = function (data, mainMap) {
       (st.inset ? '<div class="lp-blk lp-insetb"><div class="lp-sub">PETA INDEKS</div><div id="lpInset" class="lp-inset"></div></div>' : '') +
       (st.info ? '<div class="lp-blk lp-info"><table>' + info.map(function (r) { return '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>'; }).join('') + '</table>' + (st.note ? '<div class="lp-note">' + esc(st.note) + '</div>' : '') + '</div>' : '') +
       (st.logo ? '<div class="lp-blk lp-org">' + (b.logo ? '<img src="' + esc(b.logo) + '">' : '') + '<div><b>' + esc((S.boot.org || {}).name || b.title) + '</b><br><small>Dicetak dari ' + esc(b.title) + ' · ' + esc(APP_META.name) + ' v' + APP_META.version + '</small></div></div>' : '') +
-      '</div></div>' + (LU.MODE === 'demo' ? '<div class="lp-wm">VERSI DEMO</div>' : '') + '</div>';
+      '</div></div>' + (LU.isDemo() ? '<div class="lp-wm">VERSI DEMO</div>' : '') + '</div>';
   }
   function legendEditor() {
     var box = $('#lpLeg', W);

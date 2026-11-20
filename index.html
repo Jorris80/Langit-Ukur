@@ -92,8 +92,10 @@ label.f{display:block}label.f span{display:block;font-size:12px;font-weight:600;
 .chat{display:flex;flex-direction:column;gap:10px}.msg{padding:11px 13px;border-radius:14px;max-width:88%;white-space:pre-wrap}.msg.u{align-self:flex-end;background:var(--pri2);color:#fff}.msg.a{align-self:flex-start;background:var(--bg2)}
 .ck{display:flex;gap:10px;align-items:flex-start;padding:8px;border-bottom:1px dashed var(--line)}.ck input[type=checkbox]{width:20px;height:20px;accent-color:var(--ok)}
 .legal h4{margin:14px 0 4px}.legal p,.legal li{font-size:13px;color:var(--tx)}
-.fab{position:fixed;right:18px;bottom:84px;width:54px;height:54px;border-radius:16px;background:var(--pri2);color:#fff;border:0;box-shadow:0 8px 22px rgba(0,0,0,.25);display:none;place-items:center;z-index:34;cursor:pointer}
-@media (max-width:920px){.fab{display:grid}}
+.fab{position:fixed;right:16px;bottom:84px;height:52px;max-width:calc(100vw - 32px);padding:0 18px 0 14px;border-radius:26px;background:var(--pri2);color:#fff;border:0;box-shadow:0 8px 22px rgba(0,0,0,.25);display:none;align-items:center;gap:8px;z-index:34;cursor:pointer;font:inherit;font-weight:700;font-size:15px}
+.fab .fl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fab[hidden]{display:none!important}
+@media (max-width:920px){.fab{display:flex}.main{padding-bottom:150px}}
+.qa{display:grid;gap:10px}.qa .btn{justify-content:flex-start;padding:14px}
 @media print{.top,.side,.bnav,.fab,.vh .row{display:none!important}.main{margin:0;padding:0}}
 
 /* ---- layout cetak ---- */
@@ -145,8 +147,8 @@ window.LU_API_URL='https://script.google.com/macros/s/AKfycbw2FxKnvkDI_hojNd7rVA
 var APP_META = {
   name: 'LangitUkur',
   subtitle: 'Drone Survey Enterprise',
-  version: '1.2.0',
-  build: '2026.11.18',
+  version: '1.2.1',
+  build: '2026.11.20',
   schemaVersion: 3
 };
 
@@ -875,7 +877,7 @@ LU.renderShell = function () {
     '<h6>Akun</h6><a class="nv" data-go="profile">' + ic('users') + 'Profil saya</a><a class="nv" id="thm">' + ic('moon') + 'Ganti mode terang/gelap</a><a class="nv" data-go="about">' + ic('info') + 'Tentang & legal</a><a class="nv" id="lo">' + ic('out') + 'Keluar</a></aside><div class="scrim" id="scrim"></div>' +
     '<main class="main" id="main"></main>' +
     '<nav class="bnav"><a data-go="dashboard">' + ic('home') + 'Beranda</a><a data-go="map">' + ic('map') + 'Peta</a><a data-go="t:field_activities">' + ic('clip') + 'Lapangan</a><a data-go="reports">' + ic('file') + 'Laporan</a><a data-go="menu" id="bmenu">' + ic('menu') + 'Menu</a></nav>' +
-    '<button class="fab" id="fab" aria-label="Catat kegiatan">' + ic('plus') + '</button><div class="toast" id="toast"></div><div class="pbar" id="pbar"></div>';
+    '<button class="fab" id="fab" hidden>' + ic('plus') + '<span class="fl"></span></button><div class="toast" id="toast"></div><div class="pbar" id="pbar"></div>';
   renderNet(); countOutbox();
   $('#hb').onclick = function () { LU.drawer(!$('#side').classList.contains('open')); };
   $('#scrim').onclick = function () { LU.drawer(false); };
@@ -887,8 +889,33 @@ LU.renderShell = function () {
   $('#lo').onclick = function () { LU.confirm('Keluar dari aplikasi?', 'Keluar').then(function (y) { if (y) LU.logout(); }); };
   $('#thm').onclick = function () { var my = lsGet('theme', {}); my.mode = document.documentElement.getAttribute('data-mode') === 'dark' ? 'light' : 'dark'; lsSet('theme', my); LU.applyTheme(); };
   $('#psel').onchange = function (e) { S.pid = e.target.value; lsSet('pid', S.pid); LU.go(S.view, S.params, { noPush: true }); };
-  $('#fab').onclick = function () { if (!S.pid) return toast('Pilih proyek di bagian atas dulu.'); LU.edit('field_activities', null, { date: today(), project_id: S.pid }); };
+  $('#fab').onclick = function () { var a = S.fabAct; if (a) a(); };
+  /* tombol + mengikuti layar aktif: dipantau setiap isi #main berubah */
+  var fabT; new MutationObserver(function () { clearTimeout(fabT); fabT = setTimeout(LU.syncFab, 60); }).observe($('#main'), { childList: true, subtree: true });
   document.body.addEventListener('click', function (e) { var g = e.target.closest('[data-go]'); if (!g) return; var v = g.getAttribute('data-go'); if (v === 'menu') { LU.drawer(true); return; } e.preventDefault(); if (v.indexOf('t:') === 0) LU.go('table', { t: v.slice(2) }); else LU.go(v); });
+};
+/* ---------------- Tombol + kontekstual ----------------
+ * Prioritas: tombol tambah utama di layar aktif (data-fab, #add, #bnew, #qnew, #rgen, lalu tombol tambah di dalam layar).
+ * Beranda: menu tambah cepat. Layar tanpa aksi tambah (peta, laporan baca, pengaturan, profil, dll.): tombol disembunyikan. */
+var FAB_SEL = ['[data-fab]', '#add', '#bnew', '#qnew', '#rgen', '#tadd', '#iadd', '#madd'];
+function visible(el) { return el && !el.disabled && el.offsetParent !== null && !el.closest('.mw'); }
+LU.syncFab = function () {
+  var f = $('#fab'), main = $('#main'); if (!f || !main) return;
+  var lbl = '', act = null, btn = null;
+  for (var i = 0; i < FAB_SEL.length && !btn; i++) { var c = $(FAB_SEL[i], main); if (visible(c)) btn = c; }
+  if (btn) {
+    var t = (btn.getAttribute('data-fab') || btn.textContent || '').trim(), h = $('.vh h1', main);
+    lbl = /^(tambah|\+)?$/i.test(t) ? 'Tambah ' + (h ? h.textContent.trim() : '') : t;
+    act = function () { btn.click(); };
+  } else if (S.view === 'dashboard' && S.pid) {
+    var Q = [['field_activities', 'Kegiatan lapangan', { date: today() }], ['flights', 'Flight mission', {}], ['images', 'Foto / katalog', {}]].filter(function (q) { return SCHEMA[q[0]] && LU.can(SCHEMA[q[0]].mod, 'c'); });
+    if (Q.length) { lbl = 'Tambah cepat'; act = function () {
+      var m = LU.modal({ title: 'Tambah cepat — ' + ((S.boot.projects || []).filter(function (p) { return p.id === S.pid; })[0] || {}).project_code, body: '<div class="qa">' + Q.map(function (q, k) { return '<button class="btn" data-q="' + k + '">' + ic('plus') + esc(q[1]) + '</button>'; }).join('') + '</div>' });
+      $$('[data-q]', m.el).forEach(function (b) { b.onclick = function () { var q = Q[+b.getAttribute('data-q')]; m.close(); LU.edit(q[0], null, Object.assign({ project_id: S.pid }, q[2])); }; });
+    }; }
+  }
+  if (lbl.length > 26) lbl = lbl.slice(0, 25) + '…';
+  S.fabAct = act; f.hidden = !act; f.setAttribute('aria-label', lbl); f.title = lbl; $('.fl', f).textContent = lbl;
 };
 LU.isDemo = function () { return MODE === 'demo' || !!(S.boot && S.boot.license && S.boot.license.mode === 'DEMO'); };
 LU.demoInfo = function () {
